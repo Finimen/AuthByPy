@@ -3,7 +3,7 @@ from fastapi import APIRouter
 
 router = APIRouter(prefix="/health", tags=["health"])
 
-@router.get("/health", responce_model=HealthCheck)
+@router.get("/health", response_model = HealthCheck)
 async def health_check():
     """Health check endpoint"""
     import datetime

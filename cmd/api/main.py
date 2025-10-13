@@ -5,8 +5,17 @@ from pkg.logger_config import logger
 import signal
 import sys
 import asyncio
+import os
 
 from internal.handlers.health_check_handler import router as health_router
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    logger.info("initialize of app...")
+
+    yield
+
+    logger.info("initialize shut down succesfully...")
 
 app = FastAPI(
     title="My APP",
@@ -24,8 +33,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-
 
 @app.get("/")
 async def root():
@@ -46,14 +53,6 @@ async def login():
 @app.delete("/logout")
 async def logout():
     return {"message": "Logout"}
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    logger.info("initialize of app...")
-
-    yield
-
-    logger.info("initialize shut down succesfully...")
 
 def main():
     print("server started")
