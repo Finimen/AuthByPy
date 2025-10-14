@@ -1,18 +1,26 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.templating import Jinja2Templates
+from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 from pkg.logger_config import logger
+from internal.infrastrucrure.database.session import engine
+from internal.infrastrucrure.database.models import Base
 import signal
 import sys
 import asyncio
 import os
 
 from internal.handlers.health_check_handler import router as health_router
+from internal.handlers.auth_handler import router as auth_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("initialize of app...")
 
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+        
     yield
 
     logger.info("initialize shut down succesfully...")
@@ -24,7 +32,13 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+# Настраиваем шаблоны
+templates = Jinja2Templates(directory="templates")
+
 app.include_router(health_router)
+app.include_router(auth_router)
 
 app.add_middleware(
     CORSMiddleware,
@@ -35,27 +49,20 @@ app.add_middleware(
 )
 
 @app.get("/")
-async def root():
-    return {
-        "message": "SoundTube API", 
-        "version": "1.0.0",
-        "docs": "/docs"
-    }
-
-@app.post("/register")
-async def register():
-    return {"message": "Register"}
-
-@app.post("/login")
-async def login():
-    return {"message": "Login"}
-
-@app.delete("/logout")
-async def logout():
-    return {"message": "Logout"}
+async def root(request: Request):
+    return templates.TemplateResponse("index.html", {"request": request})
 
 def main():
+    import uvicorn
+    uvicorn.run(
+        "cmd.api.main:app", 
+        host="0.0.0.0", 
+        port=8000, 
+        reload=True,
+        log_level="info")
+
     print("server started")
+    
 
 if __name__ == "__main__":
     main()
