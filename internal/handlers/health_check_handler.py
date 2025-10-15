@@ -13,7 +13,7 @@ async def health_check():
     )
 
     try:
-        health.database = "health"
+        health.database = "healthly"
     except Exception:
         health.database = "unhealthly"
         health.status = "degreaded"

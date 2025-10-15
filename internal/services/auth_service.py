@@ -1,18 +1,22 @@
 from fastapi import HTTPException, Depends, status
 from internal.domain.user import UserRegister, UserLogin, Token
 from internal.infrastrucrure.repositories.user_repository import UserRepository
+from internal.infrastrucrure.repositories.token_blacklist import TokenBlacklist
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from internal.infrastrucrure.database.models import UserModel
 from passlib.context import CryptContext
 from internal.handlers.jwt_handler import JWTHandler
+from logging import Logger
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 security = HTTPBearer()
 jwt_handler = JWTHandler()
 
 class AuthService:
-    def __init__(self, repository: UserRepository):
+    def __init__(self, repository: UserRepository, blacklist: TokenBlacklist, logger: Logger):
         self.user_db = repository
+        self.token_blacklist = blacklist
+        self.logger = logger
 
     def _hash_password(self, password: str) -> str:
         return pwd_context.hash(password)
@@ -65,9 +69,16 @@ class AuthService:
             {"sub": user.username, "user_id" : user.id}
         )
 
+        if await self.token_blacklist.is_token_blacklisted(access_token):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token"
+            )
+
         return Token(access_token=access_token, token_type="bearer")
     
     async def logout_user(self, token: str) -> dict:
+        await self.token_blacklist.add_token(token, 1800)
         return {"messege" : "Succesfully logged out"}
     
     async def get_current_user(self, credentials: HTTPAuthorizationCredentials = Depends(security)) -> UserModel:
